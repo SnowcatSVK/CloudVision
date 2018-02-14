@@ -43,6 +43,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String CLOUD_VISION_API_KEY = "AIzaSyCuqgHxt7srLn-5hyfsCHTnXF82XC0bMl0";
@@ -161,7 +168,15 @@ public class MainActivity extends AppCompatActivity {
                                 MediaStore.Images.Media.getBitmap(getContentResolver(), uri),
                                 1200);
 
-                callCloudVision(bitmap);
+                analyzeImage(bitmap)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(new Consumer() {
+                            @Override
+                            public void accept(Object o) throws Exception {
+                                mImageDetails.setText(convertResponseToString((BatchAnnotateImagesResponse) o));
+                            }
+                        });
                 mMainImage.setImageBitmap(bitmap);
 
             } catch (IOException e) {
@@ -174,14 +189,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void callCloudVision(final Bitmap bitmap) throws IOException {
-        // Switch text to loading
-        mImageDetails.setText(R.string.loading_message);
-
-        // Do the real work in an async task, because we need to use the network anyway
-        new AsyncTask<Object, Void, String>() {
+    private Observable analyzeImage(final Bitmap bitmap) {
+        return Observable.create(new ObservableOnSubscribe() {
             @Override
-            protected String doInBackground(Object... params) {
+            public void subscribe(ObservableEmitter emitter) throws Exception {
                 try {
                     HttpTransport httpTransport = AndroidHttp.newCompatibleTransport();
                     JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
@@ -247,21 +258,18 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "created Cloud Vision request object, sending request");
 
                     BatchAnnotateImagesResponse response = annotateRequest.execute();
-                    return convertResponseToString(response);
+                    emitter.onNext(response);
 
                 } catch (GoogleJsonResponseException e) {
                     Log.d(TAG, "failed to make API request because " + e.getContent());
+                    emitter.onError(e);
                 } catch (IOException e) {
                     Log.d(TAG, "failed to make API request because of other IOException " +
                             e.getMessage());
+                    emitter.onError(e);
                 }
-                return "Cloud Vision API request failed. Check logs for details.";
             }
-
-            protected void onPostExecute(String result) {
-                mImageDetails.setText(result);
-            }
-        }.execute();
+        });
     }
 
     public Bitmap scaleBitmapDown(Bitmap bitmap, int maxDimension) {
