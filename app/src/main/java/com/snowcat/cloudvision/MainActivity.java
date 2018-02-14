@@ -30,11 +30,13 @@ import com.google.api.services.vision.v1.Vision;
 import com.google.api.services.vision.v1.VisionRequest;
 import com.google.api.services.vision.v1.VisionRequestInitializer;
 import com.google.api.services.vision.v1.model.AnnotateImageRequest;
+import com.google.api.services.vision.v1.model.AnnotateImageResponse;
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest;
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse;
 import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
+import com.google.api.services.vision.v1.model.SafeSearchAnnotation;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -244,7 +246,11 @@ public class MainActivity extends AppCompatActivity {
                             Feature labelDetection = new Feature();
                             labelDetection.setType("LABEL_DETECTION");
                             labelDetection.setMaxResults(10);
+                            Feature adultContent = new Feature();
+                            adultContent.setType("SAFE_SEARCH_DETECTION");
+                            adultContent.setMaxResults(10);
                             add(labelDetection);
+                            add(adultContent);
                         }});
 
                         // Add the list of one thing to the request
@@ -304,6 +310,16 @@ public class MainActivity extends AppCompatActivity {
         } else {
             message += "nothing";
         }
+        AnnotateImageResponse res = response.getResponses().get(0);
+        SafeSearchAnnotation annotation = res.getSafeSearchAnnotation();
+        message += "adult: " + annotation.getAdult();
+        message += "\n";
+        message += "medical: " + annotation.getMedical();
+        message += "\n";
+        message += "spoof: " + annotation.getSpoof();
+        message += "\n";
+        message += "violence: " + annotation.getViolence();
+        message += "\n";
 
         return message;
     }
